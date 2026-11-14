@@ -4,7 +4,7 @@
 
 ## 目的と状態
 
-本書はMVPの論理スキーマ、整合性、権限、トランザクション方針を定める。PostgreSQL 18で初期マイグレーションを追加し、ローカル`sm_secure` DBに適用済み。制約・ロール権限のDBスモークテストは実施済みだが、アプリケーション接続とログインロールでの統合テストは未実施。収集カテゴリが未確定のため、項目キーの生成・正規化規則とカテゴリ固有列は確定していない。
+本書はMVPの論理スキーマ、整合性、権限、トランザクション方針を定める。PostgreSQL 18でマイグレーションを追加し、ローカル`sm_secure` DBの`public`スキーマに適用済み。制約・ロール権限のDBスモークテストは実施済みだが、アプリケーション接続とログインロールでの統合テストは未実施。収集カテゴリが未確定のため、項目キーの生成・正規化規則とカテゴリ固有列は確定していない。
 
 データベースは試行の失敗や不完全な取得を成功データと混同せず、後から比較根拠を確認できることを優先する。生出力を保存せず、引数は既定で保存しない。
 
@@ -71,6 +71,6 @@ Domain型とテーブルの対応は[Domainモデル一覧](./domain-model.md#do
 - 引数保存を有効にするCLIの承認方法と、収集条件への記録形式。
 - 保持期間、バックアップ・復元、通常運用でのデータ削除手順。
 
-初期スキーマは`db/migrations/001_initial_schema.sql`、適用コマンドは`npm run db:migrate`、スモークテストは`npm run db:test`。両コマンドは`.env.local`の`DATABASE_URL`を読み、URL自体はログに出力しない。
+初期スキーマは`db/migrations/001_initial_schema.sql`、`public`スキーマへの移行は`db/migrations/002_move_objects_to_public.sql`。適用コマンドは`npm run db:migrate`、スモークテストは`npm run db:test`。両コマンドは`.env.local`の`DATABASE_URL`を読み、URL自体はログに出力しない。
 
 上記の判断は[技術検証メモ](./technical-validation.md)の結果と照合して確定する。Domain概念と実装状況は[Domainモデル一覧](./domain-model.md)、実装順序とテストゲートは[実装計画](./implementation-plan.md)、画面・収集契機との関係は[シーケンス図](./sequence-diagram.md)を参照する。

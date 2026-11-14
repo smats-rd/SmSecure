@@ -1,13 +1,13 @@
 $ErrorActionPreference = 'Stop'
 
 $envFile = Join-Path (Split-Path -Parent $PSScriptRoot) '.env.local'
-$migrationFile = Join-Path (Split-Path -Parent $PSScriptRoot) 'db\migrations\001_initial_schema.sql'
+$migrationDirectory = Join-Path (Split-Path -Parent $PSScriptRoot) 'db\migrations'
 
 if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) {
     throw 'ENV_FILE_NOT_FOUND'
 }
-if (-not (Test-Path -LiteralPath $migrationFile -PathType Leaf)) {
-    throw 'MIGRATION_FILE_NOT_FOUND'
+if (-not (Test-Path -LiteralPath $migrationDirectory -PathType Container)) {
+    throw 'MIGRATION_DIRECTORY_NOT_FOUND'
 }
 
 $databaseLine = Get-Content -LiteralPath $envFile |
@@ -56,10 +56,50 @@ if ($null -eq $psql) {
     throw 'PSQL_NOT_FOUND'
 }
 
-try {
-    & $psql.Source -w -X -v ON_ERROR_STOP=1 -f $migrationFile
+function Invoke-PsqlQuery([string]$query) {
+    $result = & $psql.Source -w -X -A -t -q -v ON_ERROR_STOP=1 -c $query
     if ($LASTEXITCODE -ne 0) {
-        throw "MIGRATION_FAILED_EXIT_$LASTEXITCODE"
+        throw "MIGRATION_QUERY_FAILED_EXIT_$LASTEXITCODE"
+    }
+    return $result
+}
+
+try {
+    $migrationFiles = Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File |
+        Sort-Object -Property Name
+    if ($migrationFiles.Count -eq 0) {
+        throw 'MIGRATION_FILES_NOT_FOUND'
+    }
+
+    foreach ($migrationFile in $migrationFiles) {
+        $version = [System.IO.Path]::GetFileNameWithoutExtension($migrationFile.Name)
+        $migrationTables = Invoke-PsqlQuery @"
+SELECT n.nspname
+FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE c.relname = 'schema_migrations'
+  AND c.relkind = 'r'
+  AND n.nspname IN ('public', 'sm_secure')
+ORDER BY n.nspname
+"@
+
+        $isApplied = $false
+        foreach ($schema in $migrationTables) {
+            $applied = Invoke-PsqlQuery "SELECT EXISTS (SELECT 1 FROM `"$schema`".schema_migrations WHERE version = '$version')"
+            if ($applied -contains 't') {
+                $isApplied = $true
+                break
+            }
+        }
+
+        if ($isApplied) {
+            continue
+        }
+
+        & $psql.Source -w -X -v ON_ERROR_STOP=1 -f $migrationFile.FullName
+        if ($LASTEXITCODE -ne 0) {
+            throw "MIGRATION_FAILED_EXIT_$LASTEXITCODE"
+        }
     }
     Write-Output 'MIGRATION_APPLIED'
 } finally {

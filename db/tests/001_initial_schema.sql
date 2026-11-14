@@ -32,32 +32,43 @@ DECLARE
     'hash', jsonb_build_object('state', 'unavailable', 'reason', 'hash_algorithm_unavailable')
   );
 BEGIN
-  IF has_table_privilege('sm_secure_web', 'sm_secure.observations', 'UPDATE')
-    OR has_table_privilege('sm_secure_web', 'sm_secure.observations', 'DELETE')
-    OR has_table_privilege('sm_secure_collector', 'sm_secure.observations', 'UPDATE')
-    OR has_table_privilege('sm_secure_collector', 'sm_secure.observations', 'DELETE')
+  IF to_regnamespace('sm_secure') IS NOT NULL
+    OR to_regclass('public.collection_runs') IS NULL
+    OR to_regclass('public.snapshots') IS NULL
+    OR to_regclass('public.snapshot_scopes') IS NULL
+    OR to_regclass('public.items') IS NULL
+    OR to_regclass('public.observations') IS NULL
+    OR to_regclass('public.reviews') IS NULL
+  THEN
+    RAISE EXCEPTION 'DATABASE_OBJECTS_NOT_IN_PUBLIC_SCHEMA';
+  END IF;
+
+  IF has_table_privilege('sm_secure_web', 'public.observations', 'UPDATE')
+    OR has_table_privilege('sm_secure_web', 'public.observations', 'DELETE')
+    OR has_table_privilege('sm_secure_collector', 'public.observations', 'UPDATE')
+    OR has_table_privilege('sm_secure_collector', 'public.observations', 'DELETE')
   THEN
     RAISE EXCEPTION 'OBSERVATION_WRITE_PRIVILEGE_TOO_BROAD';
   END IF;
   IF NOT has_column_privilege(
     'sm_secure_collector',
-    'sm_secure.collection_runs',
+    'public.collection_runs',
     'state',
     'UPDATE'
   ) OR NOT has_column_privilege(
     'sm_secure_web',
-    'sm_secure.reviews',
+    'public.reviews',
     'observation_id',
     'INSERT'
   ) THEN
     RAISE EXCEPTION 'EXPECTED_ROLE_PRIVILEGE_MISSING';
   END IF;
 
-  INSERT INTO sm_secure.collection_runs (conditions)
+  INSERT INTO public.collection_runs (conditions)
   VALUES (conditions)
   RETURNING id INTO run_id;
 
-  INSERT INTO sm_secure.snapshots (
+  INSERT INTO public.snapshots (
     collection_run_id,
     compatibility,
     argument_persistence_policy
@@ -65,7 +76,7 @@ BEGIN
   VALUES (run_id, compatibility, 'do_not_persist')
   RETURNING id INTO snapshot_id;
 
-  INSERT INTO sm_secure.snapshot_scopes (
+  INSERT INTO public.snapshot_scopes (
     snapshot_id,
     scope_id,
     requested,
@@ -73,15 +84,15 @@ BEGIN
   )
   VALUES (snapshot_id, 'test-logon', true, 'complete');
 
-  INSERT INTO sm_secure.items (identity_rule_version, identity_key)
+  INSERT INTO public.items (identity_rule_version, identity_key)
   VALUES ('test-identity', 'opaque-test-key')
   RETURNING id INTO item_id;
 
-  UPDATE sm_secure.collection_runs
+  UPDATE public.collection_runs
   SET state = 'succeeded', finished_at = now()
   WHERE id = run_id;
 
-  INSERT INTO sm_secure.observations (
+  INSERT INTO public.observations (
     snapshot_id,
     item_id,
     observed_fields,
@@ -99,11 +110,11 @@ BEGIN
   )
   RETURNING id INTO observation_id;
 
-  INSERT INTO sm_secure.reviews (observation_id, note)
+  INSERT INTO public.reviews (observation_id, note)
   VALUES (observation_id, 'temporary schema test');
 
   BEGIN
-    INSERT INTO sm_secure.observations (
+    INSERT INTO public.observations (
       snapshot_id,
       item_id,
       observed_fields,
