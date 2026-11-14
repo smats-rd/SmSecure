@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "node --test src/**/*.test.ts"
+    "test": "node --test src/**/*.test.ts",
+    "db:migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/migrate.ps1",
+    "db:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-db.ps1"
   },
   "devDependencies": {
     "@types/node": "22.19.11",
