@@ -1,3 +1,5 @@
+import type { ItemId } from "./item.ts";
+
 export type UnavailableReason =
   | "not_attempted"
   | "collection_failed"
@@ -87,7 +89,7 @@ export interface Observation {
   readonly id: string;
   readonly snapshotId: string;
   readonly identity:
-    | { readonly state: "identified"; readonly itemId: string }
+    | { readonly state: "identified"; readonly itemId: ItemId }
     | {
         readonly state: "unresolved";
         readonly reason: "duplicate_identity" | "missing_identity" | "unsupported_identity";

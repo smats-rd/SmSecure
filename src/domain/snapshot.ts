@@ -1,4 +1,5 @@
 import type { ObservedValue } from "./observation.ts";
+import type { CollectionRunId } from "./collectionRun.ts";
 
 export interface SnapshotCompatibility {
   readonly collectionProfile: ObservedValue;
@@ -9,19 +10,25 @@ export interface SnapshotCompatibility {
   readonly identityRuleVersion: ObservedValue;
 }
 
-export type ScopeCoverage = "complete" | "partial" | "failed" | "unknown";
+export type ScopeCoverage = "complete" | "partial" | "failed" | "not_attempted" | "unknown";
 
 export interface SnapshotScope {
   readonly id: string;
+  readonly requested: boolean;
   readonly coverage: ScopeCoverage;
+  readonly reasonCode: string | null;
 }
 
 export interface SnapshotDescriptor {
   readonly id: string;
   readonly createdAt: string;
   readonly compatibility: SnapshotCompatibility;
-  readonly requestedScopes: readonly string[];
   readonly scopes: readonly SnapshotScope[];
+}
+
+export interface Snapshot extends SnapshotDescriptor {
+  readonly collectionRunId: CollectionRunId;
+  readonly argumentPersistencePolicy: "persist" | "do_not_persist";
 }
 
 export interface BaselineSelection {
@@ -72,13 +79,12 @@ function compareOrder(
 }
 
 function completeRequestedScopes(snapshot: SnapshotDescriptor): Set<string> {
-  const requested = new Set(snapshot.requestedScopes);
   const completed = new Set<string>();
   const seen = new Set<string>();
   for (const scope of snapshot.scopes) {
     if (seen.has(scope.id)) throw new Error("SNAPSHOT_SCOPE_DUPLICATE");
     seen.add(scope.id);
-    if (requested.has(scope.id) && scope.coverage === "complete") {
+    if (scope.requested && scope.coverage === "complete") {
       completed.add(scope.id);
     }
   }

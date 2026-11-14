@@ -26,8 +26,7 @@ function snapshot(
       analysisVersion: known("analysis-v1"),
       identityRuleVersion: known("identity-v1"),
     },
-    requestedScopes: ["logon"],
-    scopes: [{ id: "logon", coverage: "complete" }],
+    scopes: [{ id: "logon", requested: true, coverage: "complete", reasonCode: null }],
     ...overrides,
   };
 }
@@ -58,17 +57,15 @@ test("selects the latest earlier compatible snapshot, not newer incompatible his
 
 test("requested scope changes allow only the intersection of complete scopes", () => {
   const current = snapshot("current", "2026-03-02T00:00:00Z", {
-    requestedScopes: ["logon", "services"],
     scopes: [
-      { id: "logon", coverage: "complete" },
-      { id: "services", coverage: "partial" },
+      { id: "logon", requested: true, coverage: "complete", reasonCode: null },
+      { id: "services", requested: true, coverage: "partial", reasonCode: "reported_incomplete" },
     ],
   });
   const previous = snapshot("previous", "2026-03-01T00:00:00Z", {
-    requestedScopes: ["logon", "scheduled"],
     scopes: [
-      { id: "logon", coverage: "complete" },
-      { id: "scheduled", coverage: "complete" },
+      { id: "logon", requested: true, coverage: "complete", reasonCode: null },
+      { id: "scheduled", requested: true, coverage: "complete", reasonCode: null },
     ],
   });
   const selection = selectComparisonBaseline(current, [previous]);
@@ -79,7 +76,9 @@ test("does not fall back to older history for scopes missing from the selected b
   const current = snapshot("current", "2026-03-03T00:00:00Z");
   const olderComplete = snapshot("older", "2026-03-01T00:00:00Z");
   const latestPartial = snapshot("latest", "2026-03-02T00:00:00Z", {
-    scopes: [{ id: "logon", coverage: "partial" }],
+    scopes: [
+      { id: "logon", requested: true, coverage: "partial", reasonCode: "reported_incomplete" },
+    ],
   });
   const selection = selectComparisonBaseline(current, [olderComplete, latestPartial]);
   assert.equal(selection?.snapshot.id, "latest");
@@ -98,8 +97,8 @@ test("duplicate scope results and invalid ordering metadata are rejected", () =>
   const current = snapshot("current", "2026-03-02T00:00:00Z");
   const duplicateScopes = snapshot("previous", "2026-03-01T00:00:00Z", {
     scopes: [
-      { id: "logon", coverage: "complete" },
-      { id: "logon", coverage: "failed" },
+      { id: "logon", requested: true, coverage: "complete", reasonCode: null },
+      { id: "logon", requested: true, coverage: "failed", reasonCode: "access_denied" },
     ],
   });
   assert.throws(
@@ -110,4 +109,13 @@ test("duplicate scope results and invalid ordering metadata are rejected", () =>
     () => selectComparisonBaseline({ ...current, createdAt: "invalid" }, []),
     /SNAPSHOT_ORDERING_METADATA_INVALID/,
   );
+});
+
+test("complete but unrequested scopes are not compared", () => {
+  const current = snapshot("current", "2026-03-02T00:00:00Z", {
+    scopes: [{ id: "logon", requested: false, coverage: "complete", reasonCode: null }],
+  });
+  const previous = snapshot("previous", "2026-03-01T00:00:00Z");
+  const selection = selectComparisonBaseline(current, [previous]);
+  assert.deepEqual(selection?.comparableScopes, []);
 });
