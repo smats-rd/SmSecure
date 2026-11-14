@@ -69,4 +69,4 @@ erDiagram
 - 引数保存を有効にするCLIの承認方法と、収集条件への記録形式。
 - 保持期間、バックアップ・復元、通常運用でのデータ削除手順。
 
-上記の判断は[技術検証メモ](./technical-validation.md)の結果と照合して確定する。実装順序とテストゲートは[実装計画](./implementation-plan.md)、画面・収集契機との関係は[シーケンス図](./sequence-diagram.md)を参照する。
+上記の判断は[技術検証メモ](./technical-validation.md)の結果と照合して確定する。Domain概念と実装状況は[Domainモデル一覧](./domain-model.md)、実装順序とテストゲートは[実装計画](./implementation-plan.md)、画面・収集契機との関係は[シーケンス図](./sequence-diagram.md)を参照する。
